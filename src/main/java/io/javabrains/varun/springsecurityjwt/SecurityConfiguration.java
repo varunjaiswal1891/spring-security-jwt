@@ -1,34 +1,29 @@
 package io.javabrains.varun.springsecurityjwt;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import io.javabrains.varun.springsecurityjwt.filters.JwtRequestFilter;
 
 
 @Configuration
 public class SecurityConfiguration {
 
-      //in memory authentication 
-    @Bean
-    public InMemoryUserDetailsManager userDetailsService()
-    {
-        UserDetails user1  = User.withUsername("blah")
-                                .password("blah")
-                                .roles("ADMIN")
-                                .build();
-
-        UserDetails user2  = User.withUsername("foo")
-                                .password("foo")
-                                .roles("USER")
-                                .build();                       
-        return new InMemoryUserDetailsManager(user1,user2);
-    }
+    @Autowired
+    private JwtRequestFilter jwtRequestFilter;
 
      @Bean
      public PasswordEncoder getPasswordEncoder()
@@ -43,11 +38,18 @@ public class SecurityConfiguration {
         http.csrf()
         .disable()
         .authorizeRequests()
-        .antMatchers("/admin").hasRole("ADMIN")
-        .antMatchers("/user").hasAnyRole("USER","ADMIN")
-        .antMatchers("/").permitAll()
+        .antMatchers("/authenticate").permitAll().anyRequest().authenticated()
+        .and().sessionManagement()
+        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         .and().formLogin();
 
+        //JwtRequestFilter jwtRequestFilter = new JwtRequestFilter();
+        http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+     }
+
+     @Bean
+     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+         return http.getSharedObject(AuthenticationManagerBuilder.class).build();
      }
 }
